@@ -1,3 +1,6 @@
+// 相当于生成一个私有变量，比较不容易被访问到
+const RENDER_TO_DOM = Symbol('render to dom')
+
 class ElementWrapper {
     constructor (type) {
         this.root = document.createElement(type)
@@ -6,13 +9,26 @@ class ElementWrapper {
         this.root.setAttribute(name, value)
     }
     appendChild (component) {
-        this.root.appendChild(component.root)
+        let range = document.createRange()
+        // 注意这个位置，因为这里是appendChild操作，即插入最后
+        // 所以range不是[0,length]而是[length,length]
+        range.setStart(this.root, this.root.childNodes.length)
+        range.setEnd(this.root, this.root.childNodes.length)
+        component[RENDER_TO_DOM](range)
+    }
+    [RENDER_TO_DOM] (range) {
+        range.deleteContents()
+        range.insertNode(this.root)
     }
 }
 
 class TextWrapper {
     constructor (content) {
         this.root = document.createTextNode(content)
+    }
+    [RENDER_TO_DOM] (range) {
+        range.deleteContents()
+        range.insertNode(this.root)
     }
 }
 
@@ -28,24 +44,10 @@ export class Component {
     appendChild (component) {
         this.children.push(component)
     }
-    // 跟一般的html标签相比，自定义组件的root需要执行render才能获得
-    // 并且赋值给root，最终希望变成一般的html标签
-    get root () {
-        if (!this._root) {
-            // 这是一个递归
-            // render出来的东西也是要经过createElement转一遍的
-            // 如果转成了普通的html标签类型，必定有this.root
-            // 如果没有root,那this.render() 返回的应该也是自定义组件,
-            // 这个返回的自定义组件也会尝试判断!this._root，并进入到这里
-            // 直到最终this.render()出来的对象有root
-            this._root = this.render().root
-        }
-        return this._root
+    [RENDER_TO_DOM] (range) {
+        this._range = range
+        this.render()[RENDER_TO_DOM](range)
     }
-}
-
-export function render (comp, parentNode) {
-    parentNode.appendChild(comp.root)
 }
 
 export function createElement (type, attrs, ...children) {
@@ -78,4 +80,18 @@ export function createElement (type, attrs, ...children) {
     }
     insertChildren(children)
     return e
+}
+
+export function render (comp, parentElement) {
+    /**
+     * 之前是操作真实dom，渲染完就没后续了
+     * 如果要重新渲染页面，我们不可能再一个个找到dom元素修改
+     */
+    // 为了能够重新渲染，使用range
+    // 但是这种方式每次会渲染整个树，后期依然要改造
+    let range = document.createRange()
+    range.setStart(parentElement, 0)
+    range.setEnd(parentElement, parentElement.childNodes.length)
+    range.deleteContents()
+    comp[RENDER_TO_DOM](range)
 }
