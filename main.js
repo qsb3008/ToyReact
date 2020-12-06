@@ -11,16 +11,17 @@ class MyComponent extends Component {
     render() {
         return <div>
             i am component
-    <span>{this.state.a.toString()}</span>
-            {
-                this.children
-            }
+            <div>a: {this.state.a.toString()}</div>
+            <div>b: {this.state.b.toString()}</div>
+            <hr/>
+            <button onclick={() => {
+                this.setState({
+                    a: this.state.a + 1
+                })
+            }}>add</button>
         </div>
     }
 }
 
 render(<MyComponent className="a" name="b">
-    222
-    <div>12</div>
-    <div></div>
 </MyComponent>, document.body)
