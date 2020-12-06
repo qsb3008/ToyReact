@@ -9,7 +9,11 @@ class ElementWrapper {
         if (name.match(/^on([\s\S]+)$/)) {
             this.root.addEventListener(RegExp.$1.replace(/^[\s\S]/, c => c.toLocaleLowerCase()), value)
         } else {
-            this.root.setAttribute(name, value)
+            if (name === 'className') {
+                this.root.setAttribute('class', value)
+            } else {
+                this.root.setAttribute(name, value)
+            }
         }
     }
     appendChild (component) {
@@ -28,7 +32,7 @@ class ElementWrapper {
 
 class TextWrapper {
     constructor (content) {
-        this.root = document.createTextNode(content)
+        this.root = document.createTextNode(String(content))
     }
     [RENDER_TO_DOM] (range) {
         range.deleteContents()
@@ -97,8 +101,11 @@ export function createElement (type, attrs, ...children) {
     }
     let insertChildren = (children) => {
         for (const child of children) {
-            if (typeof child === 'string') {
+            if (typeof child === 'string' || typeof child === 'number') {
                 child = new TextWrapper(child)
+            } 
+            if (child === null) {
+                continue
             } 
             if (Array.isArray(child)){
                 insertChildren(child)
