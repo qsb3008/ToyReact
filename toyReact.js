@@ -60,8 +60,23 @@ export class Component {
         this.render()[RENDER_TO_DOM](range)
     }
     rerender () {
-        this._range.deleteContents();
-        this[RENDER_TO_DOM](this._range)
+        /* 下面逻辑后面也得改掉，换成虚实dom对比 */ 
+        let oldRange = this._range
+        // 直接删除会有bug，删除当前节点下次插入会被吞进下一个节点
+        // 所以删除之前要先存起来，
+        // this._range.deleteContents(); // 这个注释掉，不能直接删除
+        // range 相关api：https://developer.mozilla.org/zh-CN/docs/Web/API/Range
+        let range = document.createRange()
+        // 例子[a]|[b]，假如要删除b再插入b的位置，实际就是相当于b前面的|空间，所以：
+        // setStart和setEnd的位置是相同的
+        range.setStart(oldRange.startContainer, oldRange.startOffset)
+        range.setEnd(oldRange.startContainer, oldRange.startOffset)
+        this[RENDER_TO_DOM](range)
+
+        // [a][new b][b],因为上面已经插入了new b, [b]的范围要重新设定一下
+        // 【new b】的最后元素的end开始删除到末尾
+        oldRange.setStart(range.endContainer, range.endOffset)
+        oldRange.deleteContents()
     }
     setState (newState) {
         if (this.state === null || typeof  this.state !== 'object') {
