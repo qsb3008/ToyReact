@@ -23,6 +23,9 @@ export class Component {
     get vdom () {
         return this.render().vdom
     }
+    get vchildren () {
+        return this.children.map(child => child.vdom)
+    }
     rerender () {
         /* 下面逻辑后面也得改掉，换成虚实dom对比 */ 
         let oldRange = this._range
@@ -66,7 +69,6 @@ class ElementWrapper extends Component {
     constructor (type) {
         super(type)
         this.type = type
-        this.root = document.createElement(type)
     }
     // setAttribute (name, value) {
     //     if (name.match(/^on([\s\S]+)$/)) {
@@ -88,21 +90,46 @@ class ElementWrapper extends Component {
     //     component[RENDER_TO_DOM](range)
     // }
     get vdom () {
-        return {
-            type: this.type,
-            props: this.props,
-            children: this.children.map(child => child.vdom)
-        }
+        return this
+        // {
+        //     type: this.type,
+        //     props: this.props,
+        //     children: this.children.map(child => child.vdom)
+        // }
     }
     [RENDER_TO_DOM] (range) {
         range.deleteContents()
-        range.insertNode(this.root)
+
+        let root = document.createElement(this.type)
+
+        for (const name in this.props) {
+            const value = this.props[name];
+            if (name.match(/^on([\s\S]+)$/)) {
+                root.addEventListener(RegExp.$1.replace(/^[\s\S]/, c => c.toLocaleLowerCase()), value)
+            } else {
+                if (name === 'className') {
+                    root.setAttribute('class', value)
+                } else {
+                    root.setAttribute(name, value)
+                }
+            }
+        }
+
+        for (const child of this.children) {
+            let childRange = document.createRange()
+            childRange.setStart(root, root.childNodes.length)
+            childRange.setEnd(root, root.childNodes.length)
+            child[RENDER_TO_DOM](childRange)
+        }
+
+        range.insertNode(root)
     }
 }
 
 class TextWrapper  extends Component {
     constructor (content) {
         super(content)
+        this.type = '#text'
         this.content = content
         this.root = document.createTextNode(String(content))
     }
@@ -111,10 +138,11 @@ class TextWrapper  extends Component {
         range.insertNode(this.root)
     }
     get vdom () {
-        return {
-            type: '#text',
-            content: this.content
-        }
+        return this
+        // {
+        //     type: '#text',
+        //     content: this.content
+        // }
     }
 }
 
