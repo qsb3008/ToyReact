@@ -1,45 +1,6 @@
 // 相当于生成一个私有变量，比较不容易被访问到
 const RENDER_TO_DOM = Symbol('render to dom')
 
-class ElementWrapper {
-    constructor (type) {
-        this.root = document.createElement(type)
-    }
-    setAttribute (name, value) {
-        if (name.match(/^on([\s\S]+)$/)) {
-            this.root.addEventListener(RegExp.$1.replace(/^[\s\S]/, c => c.toLocaleLowerCase()), value)
-        } else {
-            if (name === 'className') {
-                this.root.setAttribute('class', value)
-            } else {
-                this.root.setAttribute(name, value)
-            }
-        }
-    }
-    appendChild (component) {
-        let range = document.createRange()
-        // 注意这个位置，因为这里是appendChild操作，即插入最后
-        // 所以range不是[0,length]而是[length,length]
-        range.setStart(this.root, this.root.childNodes.length)
-        range.setEnd(this.root, this.root.childNodes.length)
-        component[RENDER_TO_DOM](range)
-    }
-    [RENDER_TO_DOM] (range) {
-        range.deleteContents()
-        range.insertNode(this.root)
-    }
-}
-
-class TextWrapper {
-    constructor (content) {
-        this.root = document.createTextNode(String(content))
-    }
-    [RENDER_TO_DOM] (range) {
-        range.deleteContents()
-        range.insertNode(this.root)
-    }
-}
-
 export class Component {
     constructor () {
         this.props = Object.create(null)
@@ -58,6 +19,9 @@ export class Component {
         this._range = range
         // this.render, 是我们自动组件里面的 render () { return <jsx></jsx> }
         this.render()[RENDER_TO_DOM](range)
+    }
+    get vdom () {
+        return this.render().vdom
     }
     rerender () {
         /* 下面逻辑后面也得改掉，换成虚实dom对比 */ 
@@ -95,6 +59,62 @@ export class Component {
         }
         merge(this.state, newState)
         this.rerender()
+    }
+}
+
+class ElementWrapper extends Component {
+    constructor (type) {
+        super(type)
+        this.type = type
+        this.root = document.createElement(type)
+    }
+    // setAttribute (name, value) {
+    //     if (name.match(/^on([\s\S]+)$/)) {
+    //         this.root.addEventListener(RegExp.$1.replace(/^[\s\S]/, c => c.toLocaleLowerCase()), value)
+    //     } else {
+    //         if (name === 'className') {
+    //             this.root.setAttribute('class', value)
+    //         } else {
+    //             this.root.setAttribute(name, value)
+    //         }
+    //     }
+    // }
+    // appendChild (component) {
+    //     let range = document.createRange()
+    //     // 注意这个位置，因为这里是appendChild操作，即插入最后
+    //     // 所以range不是[0,length]而是[length,length]
+    //     range.setStart(this.root, this.root.childNodes.length)
+    //     range.setEnd(this.root, this.root.childNodes.length)
+    //     component[RENDER_TO_DOM](range)
+    // }
+    get vdom () {
+        return {
+            type: this.type,
+            props: this.props,
+            children: this.children.map(child => child.vdom)
+        }
+    }
+    [RENDER_TO_DOM] (range) {
+        range.deleteContents()
+        range.insertNode(this.root)
+    }
+}
+
+class TextWrapper  extends Component {
+    constructor (content) {
+        super(content)
+        this.content = content
+        this.root = document.createTextNode(String(content))
+    }
+    [RENDER_TO_DOM] (range) {
+        range.deleteContents()
+        range.insertNode(this.root)
+    }
+    get vdom () {
+        return {
+            type: '#text',
+            content: this.content
+        }
     }
 }
 
